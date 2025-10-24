@@ -113,7 +113,8 @@ jobs:
           sarif_file: semgrep-report.sarif
           category: semgrep-sast-analysis
           checkout_path: .
-          ref: refs/heads/main
+          ref: ${{ github.ref }}
+          sha: ${{ github.sha }}
 
       - name: 🔄 Count and store vuln
         run: |
