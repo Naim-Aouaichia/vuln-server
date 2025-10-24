@@ -1,0 +1,15 @@
+name: Run Semgrep reusable scan
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - preprod
+      - 'feat/**'
+
+jobs:
+  sast_scan:
+    uses: naouaichRepo/orga-reusable-workflows/.github/workflows/security-reusable-sast-scan.yml@v1
+  sca_scan:
+    uses: naouaichRepo/orga-reusable-workflows/.github/workflows/security-reusable-sca-scan.yml@main
