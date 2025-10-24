@@ -31,6 +31,11 @@ app.get('/', (req, res) => {
     res.send('Bienvenue sur le serveur Express!');
 });
 
+// Définir une route GET pour la page d'accueil
+app.get('/new-endpoint', (req, res) => {
+    res.send('Bienvenue sur le serveur Express!');
+});
+
 // Définir une route GET pour une page "hello"
 app.get('/hello', (req, res) => {
     res.send('Hello World!');
