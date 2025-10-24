@@ -112,6 +112,8 @@ jobs:
         with:
           sarif_file: semgrep-report.sarif
           category: semgrep-sast-analysis
+          checkout_path: .
+          ref: refs/heads/main
 
       - name: 🔄 Count and store vuln
         run: |
@@ -122,12 +124,6 @@ jobs:
 
       - name: 🧪 List files 3
         run: ls -la
-
-      - name: ⬆️ Upload Semgrep file as SARIF to GitHub Advanced Security
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: semgrep-report.sarif
-          category: semgrep-sast-analysis
 
       - name: ✅ Vérification du résultat de l’analyse
         run: |
