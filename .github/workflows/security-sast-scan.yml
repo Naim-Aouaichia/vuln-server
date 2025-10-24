@@ -11,8 +11,10 @@ jobs:
   semgrep:
     runs-on: self-hosted
     permissions:
+      id-token: write
       contents: read
       security-events: write
+      actions: read
 
     steps:
 
