@@ -1,0 +1,49 @@
+name: Security SAST scan (Detect vulnerabilities)
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+      - preprod
+
+jobs:
+  semgrep:
+    runs-on: self-hosted
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: 📥 Checkout du code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Installation de Python et Semgrep
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq python3 python3-pip jq
+          pip install -q semgrep
+          semgrep --version
+
+      - name: 🚀 Exécution de Semgrep et génération du rapport SARIF
+        run: |
+          semgrep --config auto --sarif --output semgrep-report.sarif .
+          jq '.runs[0].results | length' semgrep-report.sarif > vuln_count.txt
+          VULN_COUNT=$(cat vuln_count.txt)
+          echo "Nombre de vulnérabilités détectées : $VULN_COUNT"
+          echo "VULN_COUNT=$VULN_COUNT" >> $GITHUB_ENV
+
+      - name: ⬆️ Upload du rapport SARIF vers GitHub
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep-report.sarif
+          category: semgrep-sast
+
+      - name: ✅ Vérification du résultat de l’analyse
+        run: |
+          if [ "${VULN_COUNT}" -gt 0 ]; then
+            echo "❌ ${VULN_COUNT} vulnérabilités détectées. CI bloquée."
+            exit 1
+          else
+            echo "✅ Aucune vulnérabilité détectée. CI validée."
+          fi
