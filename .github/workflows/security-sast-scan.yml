@@ -38,9 +38,92 @@ jobs:
       - name: 🧪 List files 2
         run: ls -la
 
-      - name: 🚀 Exécution de Semgrep et génération du rapport SARIF
+      - name: 🆔 Generate unique and random string for unique file naming
+        run: echo "UNIQ_STR=$(head /dev/urandom | tr -dc 'a-zA-Z0-9' | head -c 30)" >> "$GITHUB_ENV"
+
+      - name: 🫙 Store Adeo Git URL in environment variable
+        run: echo "ADEO_GIT=https://github.com/adeo/" >> "$GITHUB_ENV"
+
+      - name: 🚀🪲 Run semgrep for scan low vulnerabilities levels and add severity result in report
+        continue-on-error: ${{ ! (inputs.is-blocking == true) }}
+        if: ${{ contains(fromJson('["MAX"]'), inputs.security-level) }}
         run: |
-          semgrep --config auto --sarif --output semgrep-report.sarif .
+          semgrep --config=auto "${{ inputs.working-directory }}" \
+            --sarif --sarif-output="output-${UNIQ_STR}-info.json" --severity=INFO
+
+          jq '.runs[].results[] |= (.properties["security-severity"] = "1.0")' \
+            "output-${UNIQ_STR}-info.json" > "output-${UNIQ_STR}-info.sarif"
+
+      - name: 🚀🪲🪲 Run semgrep for scan medium vulnerabilities levels and add severity result in report
+        continue-on-error: ${{ ! (inputs.is-blocking == true) }}
+        if: ${{ contains(fromJson('["MAX", "MEDIUM"]'), inputs.security-level) }}
+        run: |
+          semgrep --config=auto "${{ inputs.working-directory }}" \
+            --sarif --sarif-output="output-${UNIQ_STR}-warning.json" --severity=WARNING
+
+          jq '.runs[].results[] |= (.properties["security-severity"] = "5.0")' \
+            "output-${UNIQ_STR}-warning.json" > "output-${UNIQ_STR}-warning.sarif"
+
+      - name: 🚀🪲🪲🪲 Run semgrep for scan high vulnerabilities levels and add severity result in report
+        continue-on-error: ${{ ! (inputs.is-blocking == true) }}
+        if: ${{ contains(fromJson('["MAX", "MEDIUM", "MIN"]'), inputs.security-level) }}
+        run: |
+          semgrep --config=auto "${{ inputs.working-directory }}" \
+            --sarif --sarif-output="output-${UNIQ_STR}-error.json" --severity=ERROR
+
+          jq '.runs[].results[] |= (.properties["security-severity"] = "7.0")' \
+            "output-${UNIQ_STR}-error.json" > "output-${UNIQ_STR}-error.sarif"
+
+      - name: 🔗 Aggregate result in semgrep-report-temp.sarif
+        continue-on-error: ${{ ! (inputs.is-blocking == true) }}
+        run: |
+          jq -s '{
+            version: (.[0].version),
+            runs: [
+              {
+                invocations: (map(.runs[].invocations) | add),
+                results: (map(.runs[].results) | add),
+                tool: {
+                  driver: {
+                    name: (.[0].runs[0].tool.driver.name),
+                    rules: (map(.runs[].tool.driver.rules) | add),
+                    semanticVersion: (.[0].runs[0].tool.driver.semanticVersion)
+                  }
+                }
+              }
+            ],
+            "$schema": (.[0]."$schema")
+          }' "output-${UNIQ_STR}-"*.sarif > semgrep-report-temp.sarif
+
+      - name: 💾 Format sarif file as required
+        id: report_prep
+        continue-on-error: ${{ ! (inputs.is-blocking == true) }}
+        run: |
+          echo "********* Change driver name"
+          jq '.runs[0].tool.driver.name = "Semgrep"' semgrep-report-temp.sarif > semgrep-report-temp-temp.sarif
+          echo "********* Set right severity code for GHAS"
+          jq '.runs[0].tool.driver.rules |= map(
+            if .defaultConfiguration.level == "note" then .properties.severity = "MEDIUM"
+            elif .defaultConfiguration.level == "warning" then .properties.severity = "HIGH"
+            elif .defaultConfiguration.level == "error" then .properties.severity = "CRITICAL"
+            else . end
+          )' semgrep-report-temp-temp.sarif > semgrep-report-temp.sarif
+          echo "********* Delete old severity code, avoiding polluting vuln reports with bad code"
+          jq '.runs[0].tool.driver.rules |= map(
+            del(.defaultConfiguration)
+          )' semgrep-report-temp.sarif > semgrep-report.sarif
+          echo "********* Prepare security tab code scanning link"
+          echo "tab_security_github=${{ env.ADEO_GIT }}${{ github.event.repository.name }}/security/code-scanning" >> "$GITHUB_OUTPUT"
+
+      - name: ⬆️ Upload Semgrep file as SARIF to GitHub Advanced Security
+        continue-on-error: ${{ ! (inputs.is-blocking == true) }}
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep-report.sarif
+          category: semgrep-sast-analysis
+
+      - name: 🔄 Count and store vuln
+        run: |
           jq '.runs[0].results | length' semgrep-report.sarif > vuln_count.txt
           VULN_COUNT=$(cat vuln_count.txt)
           echo "Nombre de vulnérabilités détectées : $VULN_COUNT"
