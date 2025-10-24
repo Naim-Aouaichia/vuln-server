@@ -10,4 +10,4 @@ on:
 
 jobs:
   sast_scan:
-    uses: naouaichRepo/orga-reusable-workflows/.github/workflows/security-reusable-sast-scan.yml
+    uses: naouaichRepo/orga-reusable-workflows/.github/workflows/security-reusable-sast-scan.yml@v1
