@@ -1,4 +1,4 @@
-name: Run Semgrep reusable scan
+name: Run security Scan
 
 on:
   push:
