@@ -41,41 +41,34 @@ jobs:
       - name: 🆔 Generate unique and random string for unique file naming
         run: echo "UNIQ_STR=$(head /dev/urandom | tr -dc 'a-zA-Z0-9' | head -c 30)" >> "$GITHUB_ENV"
 
-      - name: 🫙 Store Adeo Git URL in environment variable
-        run: echo "ADEO_GIT=https://github.com/adeo/" >> "$GITHUB_ENV"
+      - name: 🫙 Store Perso Git URL in environment variable
+        run: echo "PERSO_GIT=https://github.com/Naim-Aouaichia/" >> "$GITHUB_ENV"
 
       - name: 🚀🪲 Run semgrep for scan low vulnerabilities levels and add severity result in report
-        continue-on-error: ${{ ! (inputs.is-blocking == true) }}
-        if: ${{ contains(fromJson('["MAX"]'), inputs.security-level) }}
         run: |
-          semgrep --config=auto "${{ inputs.working-directory }}" \
+          semgrep --config=auto . \
             --sarif --sarif-output="output-${UNIQ_STR}-info.json" --severity=INFO
 
           jq '.runs[].results[] |= (.properties["security-severity"] = "1.0")' \
             "output-${UNIQ_STR}-info.json" > "output-${UNIQ_STR}-info.sarif"
 
       - name: 🚀🪲🪲 Run semgrep for scan medium vulnerabilities levels and add severity result in report
-        continue-on-error: ${{ ! (inputs.is-blocking == true) }}
-        if: ${{ contains(fromJson('["MAX", "MEDIUM"]'), inputs.security-level) }}
         run: |
-          semgrep --config=auto "${{ inputs.working-directory }}" \
+          semgrep --config=auto . \
             --sarif --sarif-output="output-${UNIQ_STR}-warning.json" --severity=WARNING
 
           jq '.runs[].results[] |= (.properties["security-severity"] = "5.0")' \
             "output-${UNIQ_STR}-warning.json" > "output-${UNIQ_STR}-warning.sarif"
 
       - name: 🚀🪲🪲🪲 Run semgrep for scan high vulnerabilities levels and add severity result in report
-        continue-on-error: ${{ ! (inputs.is-blocking == true) }}
-        if: ${{ contains(fromJson('["MAX", "MEDIUM", "MIN"]'), inputs.security-level) }}
         run: |
-          semgrep --config=auto "${{ inputs.working-directory }}" \
+          semgrep --config=auto . \
             --sarif --sarif-output="output-${UNIQ_STR}-error.json" --severity=ERROR
 
           jq '.runs[].results[] |= (.properties["security-severity"] = "7.0")' \
             "output-${UNIQ_STR}-error.json" > "output-${UNIQ_STR}-error.sarif"
 
       - name: 🔗 Aggregate result in semgrep-report-temp.sarif
-        continue-on-error: ${{ ! (inputs.is-blocking == true) }}
         run: |
           jq -s '{
             version: (.[0].version),
@@ -97,7 +90,6 @@ jobs:
 
       - name: 💾 Format sarif file as required
         id: report_prep
-        continue-on-error: ${{ ! (inputs.is-blocking == true) }}
         run: |
           echo "********* Change driver name"
           jq '.runs[0].tool.driver.name = "Semgrep"' semgrep-report-temp.sarif > semgrep-report-temp-temp.sarif
@@ -113,10 +105,9 @@ jobs:
             del(.defaultConfiguration)
           )' semgrep-report-temp.sarif > semgrep-report.sarif
           echo "********* Prepare security tab code scanning link"
-          echo "tab_security_github=${{ env.ADEO_GIT }}${{ github.event.repository.name }}/security/code-scanning" >> "$GITHUB_OUTPUT"
+          echo "tab_security_github=${{ env.PERSO_GIT }}${{ github.event.repository.name }}/security/code-scanning" >> "$GITHUB_OUTPUT"
 
       - name: ⬆️ Upload Semgrep file as SARIF to GitHub Advanced Security
-        continue-on-error: ${{ ! (inputs.is-blocking == true) }}
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: semgrep-report.sarif
